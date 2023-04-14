@@ -89,6 +89,18 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { all } from 'q'
+var redMarker = L.divIcon({className: 'redMarkerIcon'});
+var noContentMarker = L.divIcon({className: 'noContentMarkerIcon'});
+// 标记 marker
+var tabMarker = L.divIcon({
+    className: 'tabMarkerIcon',
+    html: `<i class="el-icon-location"></i>`
+});
+// 收藏 marker
+var collectMarker = L.divIcon({
+    className: 'collectMarkerIcon',
+    html: `<i class="el-icon-star-on"></i>`
+});
 export default {
     name: 'LeafletDemo',
     comments: {
@@ -116,6 +128,27 @@ export default {
     },
     mounted() {
         this.init()
+    },
+    watch: {
+        optLayerVif(newValue, oldValue) {
+            if(newValue === true) {
+                this.optShowVif = false
+                this.optToolVif = false
+            }
+        },
+        optShowVif(newValue, oldValue) {
+            if(newValue === true) {
+                this.optLayerVif = false
+                this.optToolVif = false
+            }
+        },
+        optToolVif(newValue, oldValue) {
+            if(newValue === true) {
+                this.optLayerVif = false
+                this.optShowVif = false
+            }
+        },
+
     },
     methods: {
         // 地图图层切换
@@ -174,7 +207,6 @@ export default {
                     layers: 'hangzhou:baiduYX15',
                 }
             )
-            console.log(this.map);
             // 新增标记点
             var point1 = L.marker([30.2, 120.4]).bindPopup('这里是北京')
             var cities = L.layerGroup([point1])
@@ -195,7 +227,6 @@ export default {
         },
         setView() {
             this.map.removeLayer(this.baiduYXlayer)
-            console.log(this.map);
         },
         flyTo() {
             this.map.setView([30,120],13)
@@ -204,11 +235,9 @@ export default {
             this.map.setView([30,120],10)
         },
         test() {
-            console.log(this.map.getCenter());
         },
         // 点击 图层切换
         optLayerClick(e) {
-            console.log(e.target.className.includes('optLayerDiv'));
             if(e.target.className === 'el-icon-arrow-up' || e.target.className.includes('optLayerDiv')) {
                 this.optLayerVif = !this.optLayerVif
             }
@@ -235,7 +264,7 @@ export default {
             // 用time来记录点击点数
             let that = this
             var time = 0
-            var myIcon = L.divIcon({className: 'myMarkerIcon'});
+            var myIcon = L.divIcon({className: 'redMarker'});
             var transparentIcon = L.divIcon({className: 'transparentIcon'});
             const allpoint = []
             var transparentPolyLine = null
@@ -317,11 +346,20 @@ export default {
         },
         // 工具箱 点击标记
         markClick() {
-            
+            //
+            let that = this
+            that.map.on('click', function(e) {
+                let point = [e.latlng.lat*1,e.latlng.lng*1]
+                L.marker(point,{icon: tabMarker}).addTo(that.map)
+            })
         },
         // 工具箱 点击收藏
         collectClick() {
-            
+            let that = this
+            that.map.on('click', function(e) {
+                let point = [e.latlng.lat*1,e.latlng.lng*1]
+                L.marker(point,{icon: collectMarker}).addTo(that.map)
+            })
         },
         // 工具箱 点亮
         lightClick() {
@@ -330,35 +368,34 @@ export default {
         // 工具箱 绘制图形
         drawGraphClick(type) {
             let that = this
+            that.$message.success('开始绘制')
             if(type === 'rectangle'){
                 // 矩形
                 // 点击，确定其中一个顶点1，可向四周移动鼠标确定 对角顶点2
-                var myIcon = L.divIcon({className: 'myMarkerIcon'});
                 let rectanglePolyLine = null
                 let rectanglePolyLineToolTip = null
                 this.map.on('click', function(e) {
-                    // 起点
+                    // 起点 （其中一个顶点）
                     let point1 = [e.latlng.lat*1,e.latlng.lng*1]
-                    // const aa =  L.marker(point1,{
-                    //     icon: myIcon,
-                    // }).addTo(that.map)
                     that.map.on('mousemove', function(e) {
                         let point2 = [e.latlng.lat*1,e.latlng.lng*1]
+                        // 画矩形
                         if(rectanglePolyLine !== null) {
                             rectanglePolyLine.remove()
                         }
                         let polyLinePoint1 = [point1,[point1[0],point2[1]],point2,[point2[0],point1[1]],point1]
-                        rectanglePolyLine = L.polyline(polyLinePoint1, {color: 'rgba(255,0,0,0.5)'}).addTo(that.map)
-
+                        rectanglePolyLine = L.rectangle(polyLinePoint1, {color: 'rgba(255,0,0,0.5)'}).addTo(that.map)
+                        // 提示工具  单击重新选择顶点，双击结束
                         if(rectanglePolyLineToolTip !== null) {
                             rectanglePolyLineToolTip.remove()
                         }
-                        rectanglePolyLineToolTip =  L.marker(point2,{icon: myIcon,}).addTo(that.map)
+                        rectanglePolyLineToolTip =  L.marker(point2,{icon: noContentMarker,}).addTo(that.map)
                         rectanglePolyLineToolTip.bindTooltip(`<span class="markerTooltipSpan">单击重新选择顶点，双击结束</span>`,{
                             permanent: true,
                             offset: [10,0]
                         }).openTooltip();
                     })
+                    // 双击结束函数
                     that.map.on('dblclick', function(e) {
                         rectanglePolyLineToolTip.remove()
                         that.stopDistanceFun()
@@ -366,8 +403,86 @@ export default {
                 })
             } else if(type === 'circular') {
                 // 圆形
+                // 点击 确定圆形的中心点，向四周拖动鼠标确定半径
+                let circular = null
+                let circularToolTip = null
+                this.map.on('click', function(e) {
+                    // 起点（圆心）
+                    let point1 = [e.latlng.lat*1,e.latlng.lng*1]
+                    that.map.on('mousemove', function(e) {
+                        let point2 = [e.latlng.lat*1,e.latlng.lng*1]
+                        // 画圆形
+                        if(circular !== null) {
+                            circular.remove()
+                        }
+                        /** 
+                         * 
+                         * L.circle（[圆心坐标]，{radius: 半径}）.addTo(map)
+                         * 
+                         * **/
+                        // 半径
+                        let radius = that.map.distance(point1,point2)
+                        circular = L.circle(point1,{radius: radius}, {color: 'rgba(255,0,0,0.5)'}).addTo(that.map)
+                        // 提示工具  单击重新选择顶点，双击结束
+                        if(circularToolTip !== null) {
+                            circularToolTip.remove()
+                        }
+                        circularToolTip =  L.marker(point2,{icon: noContentMarker}).addTo(that.map)
+                        circularToolTip.bindTooltip(`<span class="markerTooltipSpan">单击重新选择圆心，双击结束</span>`,{
+                            permanent: true,
+                            offset: [10,0]
+                        }).openTooltip();
+                    })
+                    // 双击结束函数
+                    that.map.on('dblclick', function(e) {
+                        circularToolTip.remove()
+                        that.stopDistanceFun()
+                    })
+                })
             } else if(type === 'costom') {
                 // 自定义
+                // 点击，确定 一个顶点，再单击 确定一个顶点....直至形成一个闭合图形
+                var myIcon = L.divIcon({className: 'noContentMark'});
+                let costomPolyLine = null
+                let costomPolyLine2 = null
+                let costomPolyLineToolTip = null
+                let costomPolyLinePoint = []
+                this.map.on('click', function(e) {
+                    let point1 = [e.latlng.lat*1,e.latlng.lng*1]
+                    costomPolyLinePoint.push(point1)
+                    // 显示顶点
+                    // L.marker(costomPolyLinePoint,{icon: myIcon}).addTo(that.map)
+                    if(costomPolyLine !== null) {
+                        costomPolyLine.remove()
+                    }
+                    // 绘制折线
+                    costomPolyLine = L.polyline(costomPolyLinePoint, {color: 'rgba(255,0,0,0.5)'}).addTo(that.map)
+                    that.map.on('mousemove', function(e) {
+                        let point2 = [e.latlng.lat*1,e.latlng.lng*1]
+                        // 画 透明折线
+                        if(costomPolyLine2 !== null) {
+                            costomPolyLine2.remove()
+                        }
+                        costomPolyLine2 = L.polyline([point1, point2], {color: 'rgba(255,0,0,0.5)'}).addTo(that.map)
+                        // 提示工具  单击选择下一顶点，双击闭合图形 结束绘制
+                        if(costomPolyLineToolTip !== null) {
+                            costomPolyLineToolTip.remove()
+                        }
+                        costomPolyLineToolTip =  L.marker(point2,{icon: noContentMarker}).addTo(that.map)
+                        costomPolyLineToolTip.bindTooltip(`<span class="markerTooltipSpan">单击选择下一顶点，双击闭合图形，结束绘制</span>`,{
+                            permanent: true,
+                            offset: [10,0]
+                        }).openTooltip();
+                    })
+                    // 双击结束函数--把折线绘制成闭合图形
+                    that.map.on('dblclick', function(e) {
+                        costomPolyLineToolTip.remove()
+                        costomPolyLine.remove()
+                        // costomPolyLinePoint = [...costomPolyLinePoint,costomPolyLinePoint[0]]
+                        costomPolyLine = L.polygon(costomPolyLinePoint, {color: 'rgba(255,0,0,0.5)'}).addTo(that.map)
+                        that.stopDistanceFun()
+                    })
+                })
             }
         },
         // 显示 标记
@@ -537,13 +652,21 @@ export default {
                 }
             }
         }
+        .topOptDiv:hover{
+            color: #000;
+            background: rgba(0,0,0,0.05);
+        }
     }
-    /deep/ .myMarkerIcon{
+    /deep/ .redMarkerIcon{
         width: 15px;
         height: 15px;
         border-radius: 50%;
         background: rgba(255,0,0,0.7);
         z-index: 402;
+    }
+    /deep/ .noContentMarkerIcon{
+        width: 0px;
+        height: 0px;
     }
     /deep/ .transparentIcon{
         width: 5px;
@@ -555,6 +678,18 @@ export default {
     }
     /deep/ .markerTooltipSpan{
         color: #000;
+    }
+    /deep/ .tabMarkerIcon{
+        i{
+            font-size: 25px;
+            color: rgba(255,0,0,0.7);
+        }
+    }
+    /deep/ .collectMarkerIcon{
+        i{
+            font-size: 25px;
+            color: rgb(138, 141, 39);
+        }
     }
 }
 
