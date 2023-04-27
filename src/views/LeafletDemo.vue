@@ -123,7 +123,14 @@ export default {
                 LW: null
             },
             optShowVif: false,
-            drawToolHover: false
+            drawToolHover: false,
+            markClickPopupHtml: `<div class="markClickPopup">
+                        <div class="title">确定删除该标记点？</div>
+                        <div clasa="btnGroup">
+                            <button class="my-button" id="markClickPopupBtnOk"}>确定</button>    
+                            <button class="my-button" id="markClickPopupBtnCancel">取消</button>    
+                        </div>
+                    </div>`
         }
     },
     mounted() {
@@ -254,12 +261,12 @@ export default {
                 this.optToolVif = !this.optToolVif
             }
         },
-        // 工具箱 点击测绘
+        // 工具箱 点击测距
         distanceClick() {
-            // 点击测绘, 开始测绘事件
+            // 点击测距, 开始测距事件
             this.distanceFun()
         },
-        // 测绘函数
+        // 测距函数
         distanceFun() {
             // 用time来记录点击点数
             let that = this
@@ -277,7 +284,6 @@ export default {
                     const aa =  L.marker(nowClickPoint,{
                         icon: myIcon,
                     }).addTo(that.map)
-                    // bindTooltip 显示在右侧 比较小
                     aa.bindTooltip(`<span class="markerTooltipSpan">起点</span>`,{
                         permanent: true,
                         offset: [10,0]
@@ -304,7 +310,7 @@ export default {
                             transparentPolyLineToolTip.remove()
                         }
                         transparentPolyLineToolTip =  L.marker(point,{icon: myIcon,}).addTo(that.map)
-                        transparentPolyLineToolTip.bindTooltip(`<span class="markerTooltipSpan">总长： ${nowDistance} 米; 双击结束</span>`,{
+                        transparentPolyLineToolTip.bindTooltip(`<span class="markerTooltipSpan">距离： ${nowDistance} 米; 双击结束</span>`,{
                             permanent: true,
                             offset: [10,0]
                         }).openTooltip();
@@ -330,7 +336,7 @@ export default {
                     let aa =  L.marker(nowClickPoint,{
                         icon: myIcon,
                     }).addTo(that.map)
-                    aa.bindTooltip(`<span class="markerTooltipSpan">总长： ${nowDistance} 米</span>`,{
+                    aa.bindTooltip(`<span class="markerTooltipSpan">距离： ${nowDistance} 米</span>`,{
                         permanent: true,
                         offset: [10,0]
                     }).openTooltip();
@@ -345,13 +351,36 @@ export default {
             this.map.off('dblclick')
         },
         // 工具箱 点击标记
-        markClick() {
-            //
+        markClick(e) {
             let that = this
-            that.map.on('click', function(e) {
+            function clickFun(e) {
                 let point = [e.latlng.lat*1,e.latlng.lng*1]
-                L.marker(point,{icon: tabMarker}).addTo(that.map)
-            })
+                const markPoint = L.marker(point,{icon: tabMarker}).addTo(that.map)
+                // Tooltip展示经纬度
+                markPoint.bindTooltip(`<div>经度：${point[1].toFixed(5)}</div><div>纬度：${point[0].toFixed(5)}</div>`, {offset:[10,0], permanent: false}).openTooltip();
+                // Popup 弹出框 -- 是否要删除该标记点
+                markPoint.bindPopup(that.markClickPopupHtml,{
+                })
+                // that.map.off('click',clickFun)
+                // 点击确定 -- 删除该标记点
+                // console.log(document.getEle
+                
+                
+                mentById('markClickPopupBtnOk'));
+                document.getElementById('markClickPopupBtnOk').onclick = function() {
+                    console.log('ok');
+                    markPoint.remove()
+                }
+                // 点击取消 -- 关闭popup
+                document.getElementById('markClickPopupBtnCancel').onclick = function(){
+                    markPoint.closePopup();
+                }
+                // 删除click防止多次触发
+                that.map.off('click')
+            }
+            that.map.on('click', clickFun)
+            // 删除click防止多次触发
+            // that.map.off('click',clickFun)
         },
         // 工具箱 点击收藏
         collectClick() {
@@ -359,6 +388,8 @@ export default {
             that.map.on('click', function(e) {
                 let point = [e.latlng.lat*1,e.latlng.lng*1]
                 L.marker(point,{icon: collectMarker}).addTo(that.map)
+                // 删除click防止多次触发
+                that.map.off('click')
             })
         },
         // 工具箱 点亮
@@ -690,6 +721,26 @@ export default {
             font-size: 25px;
             color: rgb(138, 141, 39);
         }
+    }
+    // 标记点 popup
+    /deep/ .markClickPopup{
+        >.title{
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        .my-button{
+            background: #fff;
+            border: 1px solid rgb(201, 196, 196);
+            border-radius: 2px;
+            cursor: pointer;
+            padding: 3px 8px !important;
+            font-size: 12px;
+        }
+        // 确定按钮
+        .my-button:first-child{
+            color: #409EFF;
+        }
+
     }
 }
 

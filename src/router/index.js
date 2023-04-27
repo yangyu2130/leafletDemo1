@@ -3,6 +3,7 @@ import Router from 'vue-router'
 import Login from '@/components/Login'
 import Reset from '@/components/Reset'
 import LeafletDemo from '@/views/LeafletDemo'
+import Test from '@/views/Test'
 
 Vue.use(Router)
 
@@ -27,6 +28,11 @@ export default new Router({
       path: '/Reset',
       name: 'Reset',
       component: Reset
+    },
+    {
+      path: '/Test',
+      name: 'Test',
+      component: Test
     }
   ]
 })
